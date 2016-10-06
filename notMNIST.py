@@ -240,7 +240,6 @@ def randomize(dataset, labels):
 #
 # print(model.score(X_train, train_labels[0:5000]))
 ##########################################################################
-
 ######################Fully Connected Network############################
 print('######################Fully Connected Network############################')
 pickle_file = 'notMNIST.pickle'
