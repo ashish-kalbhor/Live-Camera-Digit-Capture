@@ -9,6 +9,8 @@ from scipy import ndimage
 from sklearn.linear_model import LogisticRegression
 from six.moves.urllib.request import urlretrieve
 import six.moves.cPickle as pickle
+from six.moves import range
+import tensorflow as tf
 
 # Config the matplotlib backend as plotting inline in IPython
 #%matplotlib inline
@@ -50,8 +52,8 @@ def maybe_download(filename, expected_bytes, force=False):
     return filename
 
 ## Downloading the DataSet
-train_filename = maybe_download('notMNIST_large.tar.gz', 247336696)
-test_filename = maybe_download('notMNIST_small.tar.gz', 8458043)
+# train_filename = maybe_download('notMNIST_large.tar.gz', 247336696)
+# test_filename = maybe_download('notMNIST_small.tar.gz', 8458043)
 
 num_classes = 10
 np.random.seed(133)
@@ -79,8 +81,8 @@ def maybe_extract(filename, force=False):
     return data_folders
 
 ## Extracting the DataSet
-train_folders = maybe_extract(train_filename)
-test_folders = maybe_extract(test_filename)
+# train_folders = maybe_extract(train_filename)
+# test_folders = maybe_extract(test_filename)
 
 ## Load the data and create Train and Test dataSets.
 image_size = 28  # Pixel width and height.
@@ -137,8 +139,8 @@ def maybe_pickle(data_folders, min_num_images_per_class, force=False):
     return dataset_names
 
 
-train_datasets = maybe_pickle(train_folders, 45000)
-test_datasets = maybe_pickle(test_folders, 1800)
+# train_datasets = maybe_pickle(train_folders, 45000)
+# test_datasets = maybe_pickle(test_folders, 1800)
 
 ## To balance the data, Merge and Prune the training Data.
 def make_arrays(nb_rows, img_size):
@@ -189,13 +191,13 @@ train_size = 200000
 valid_size = 10000
 test_size = 10000
 
-valid_dataset, valid_labels, train_dataset, train_labels = merge_datasets(
-    train_datasets, train_size, valid_size)
-_, _, test_dataset, test_labels = merge_datasets(test_datasets, test_size)
-
-print('Training:', train_dataset.shape, train_labels.shape)
-print('Validation:', valid_dataset.shape, valid_labels.shape)
-print('Testing:', test_dataset.shape, test_labels.shape)
+# valid_dataset, valid_labels, train_dataset, train_labels = merge_datasets(
+#     train_datasets, train_size, valid_size)
+# _, _, test_dataset, test_labels = merge_datasets(test_datasets, test_size)
+#
+# print('Training:', train_dataset.shape, train_labels.shape)
+# print('Validation:', valid_dataset.shape, valid_labels.shape)
+# print('Testing:', test_dataset.shape, test_labels.shape)
 
 ## Next, Randomize the DataSet.
 def randomize(dataset, labels):
@@ -203,38 +205,72 @@ def randomize(dataset, labels):
   shuffled_dataset = dataset[permutation,:,:]
   shuffled_labels = labels[permutation]
   return shuffled_dataset, shuffled_labels
-train_dataset, train_labels = randomize(train_dataset, train_labels)
-test_dataset, test_labels = randomize(test_dataset, test_labels)
-valid_dataset, valid_labels = randomize(valid_dataset, valid_labels)
+# train_dataset, train_labels = randomize(train_dataset, train_labels)
+# test_dataset, test_labels = randomize(test_dataset, test_labels)
+# valid_dataset, valid_labels = randomize(valid_dataset, valid_labels)
 
 ## Save the complete data in the end.
-pickle_file = 'notMNIST.pickle'
+# pickle_file = 'notMNIST.pickle'
+#
+# try:
+#   f = open(pickle_file, 'wb')
+#   save = {
+#     'train_dataset': train_dataset,
+#     'train_labels': train_labels,
+#     'valid_dataset': valid_dataset,
+#     'valid_labels': valid_labels,
+#     'test_dataset': test_dataset,
+#     'test_labels': test_labels,
+#     }
+#   pickle.dump(save, f, pickle.HIGHEST_PROTOCOL)
+#   f.close()
+# except Exception as e:
+#   print('Unable to save data to', pickle_file, ':', e)
+#   raise
 
-try:
-  f = open(pickle_file, 'wb')
-  save = {
-    'train_dataset': train_dataset,
-    'train_labels': train_labels,
-    'valid_dataset': valid_dataset,
-    'valid_labels': valid_labels,
-    'test_dataset': test_dataset,
-    'test_labels': test_labels,
-    }
-  pickle.dump(save, f, pickle.HIGHEST_PROTOCOL)
-  f.close()
-except Exception as e:
-  print('Unable to save data to', pickle_file, ':', e)
-  raise
-
-statinfo = os.stat(pickle_file)
-print('Compressed pickle size:', statinfo.st_size)
+# statinfo = os.stat(pickle_file)
+# print('Compressed pickle size:', statinfo.st_size)
 
 ######################Building Logistic Model#############################
-(samples, width, height) = train_dataset.shape
-X_train = np.reshape(train_dataset, (samples, width*height))[0:2000]
+# (samples, width, height) = train_dataset.shape
+# X_train = np.reshape(train_dataset, (samples, width*height))[0:5000]
+#
+# model = LogisticRegression()
+# model = model.fit(X_train, train_labels[0:5000])
+#
+# print(model.score(X_train, train_labels[0:5000]))
+##########################################################################
 
-model = LogisticRegression()
-model = model.fit(X_train, train_labels[0:2000])
+######################Fully Connected Network############################
+print('######################Fully Connected Network############################')
+pickle_file = 'notMNIST.pickle'
 
-print(model.score(X_train, train_labels[0:2000]))
+with open(pickle_file, 'rb') as f:
+  save = pickle.load(f)
+  train_dataset = save['train_dataset']
+  train_labels = save['train_labels']
+  valid_dataset = save['valid_dataset']
+  valid_labels = save['valid_labels']
+  test_dataset = save['test_dataset']
+  test_labels = save['test_labels']
+  del save  # hint to help gc free up memory
+  print('Training set', train_dataset.shape, train_labels.shape)
+  print('Validation set', valid_dataset.shape, valid_labels.shape)
+  print('Test set', test_dataset.shape, test_labels.shape)
+
+image_size = 28
+num_labels = 10
+
+def reformat(dataset, labels):
+  dataset = dataset.reshape((-1, image_size * image_size)).astype(np.float32)
+  # Map 0 to [1.0, 0.0, 0.0 ...], 1 to [0.0, 1.0, 0.0 ...]
+  labels = (np.arange(num_labels) == labels[:,None]).astype(np.float32)
+  return dataset, labels
+train_dataset, train_labels = reformat(train_dataset, train_labels)
+valid_dataset, valid_labels = reformat(valid_dataset, valid_labels)
+test_dataset, test_labels = reformat(test_dataset, test_labels)
+print('Training set', train_dataset.shape, train_labels.shape)
+print('Validation set', valid_dataset.shape, valid_labels.shape)
+print('Test set', test_dataset.shape, test_labels.shape)
+
 ##########################################################################
