@@ -12,9 +12,6 @@ import six.moves.cPickle as pickle
 from six.moves import range
 import tensorflow as tf
 
-# Config the matplotlib backend as plotting inline in IPython
-#%matplotlib inline
-
 url = 'http://commondatastorage.googleapis.com/books1000/'
 last_percent_reported = None
 
